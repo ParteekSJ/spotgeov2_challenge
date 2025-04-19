@@ -1,0 +1,6 @@
+data/SpotGeoV2
+__pycache__
+*.ipynb
+*.pdf
+spotgeo.py
+validation.py
