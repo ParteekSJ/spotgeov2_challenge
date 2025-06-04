@@ -48,7 +48,7 @@ def create_deeplabv3_model():
 
 
 if __name__ == "__main__":
-    ipdb.set_trace()
+    # ipdb.set_trace()
     model = create_deeplabv3_model()
     model.train()
 

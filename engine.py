@@ -23,7 +23,6 @@ def train_one_epoch(
         inputs, masks = inputs.to(device), masks.unsqueeze(1).float().to(device)
         outputs = model(inputs)["out"]
         loss = criterion(outputs, masks)
-
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -47,7 +46,7 @@ def validate(model, criterion, data_loader, device, logger, args):
         inputs = inputs.to(device)  # [B,1,H,W]
         targets = masks.to(device).squeeze(1)  # [B,H,W]
 
-        logits = model(inputs)  # [B,2,H,W] or [B,1,H,W] w/ BCE
+        logits = model(inputs)["out"]  # [B,2,H,W] or [B,1,H,W] w/ BCE
         loss = criterion(logits, targets.unsqueeze(1))
         losses.append(loss.item())
 

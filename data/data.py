@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 import numpy as np
 import torch
+import ipdb
 
 
 class SpotGeoDataset(Dataset):
@@ -28,10 +29,10 @@ class SpotGeoDataset(Dataset):
         self.frame_seq_ids = list(self.organized_data.keys())
 
     def __len__(self):
-        if self.mode == "test":
-            return 1000
-        return len(self.organized_data)
-        # return 1
+        # if self.mode == "test":
+        #     return 1000
+        # return len(self.organized_data)
+        return 10
 
     def __getitem__(self, idx):
         sequence, frame = self.frame_seq_ids[idx].split("_")
@@ -52,6 +53,10 @@ class SpotGeoDataset(Dataset):
         if self.transforms:
             image_tensor = self.transforms(image_np)
             mask_tensor = self.transforms(mask_np)
+
+        # Binarizing the mask
+        mask_tensor[mask_tensor == -1] = 0.0
+        mask_tensor[mask_tensor < 0] = 1.0
 
         return image_tensor.unsqueeze(0), mask_tensor.unsqueeze(0), centroids_tensor
 
@@ -76,28 +81,51 @@ class SpotGeoDataset(Dataset):
         plt.show()
 
 
-def create_mask(image, centroids, std=0.2):
+def create_mask(image, centroids, std=0.2, threshold=None):
     """
-    Create a binary mask with a Gaussian spread (PSF‑like) for each centroid,
-    implemented using NumPy arrays.
+    Create a binary mask with a Gaussian spread (PSF-like) for each centroid,
+    implemented using NumPy arrays and returned as a PyTorch tensor.
 
     Args:
-        image (np.ndarray): Input image array (used only for its H, W).
-        centroids (Iterable of (x, y)): Pixel coordinates of each spot.
+        image (np.ndarray or PIL.Image): Input image to determine mask shape (H, W).
+        centroids (Iterable of (x, y)): Pixel coordinates of each spot (x, y).
         std (float): Standard deviation of the Gaussian spread.
+        threshold (float, optional): Threshold for binarizing the Gaussian mask.
+                                   If None, defaults to exp(-1/(2*std^2)) (~0.607).
 
     Returns:
-        np.ndarray: A mask of shape (H, W) with values 0.0 or 1.0.
+        torch.Tensor: Binary mask of shape (1, H, W) with values 0.0 or 1.0.
     """
-    # get W,H from PIL
-    h, w = image.shape
+    # Handle input image
+    if isinstance(image, Image.Image):
+        h, w = image.size[1], image.size[0]  # PIL uses (W, H)
+    elif isinstance(image, np.ndarray):
+        h, w = image.shape[:2]  # Assume (H, W) or (H, W, C)
+    else:
+        raise ValueError("Image must be a PIL Image or NumPy array")
+
+    # Initialize mask
     mask = np.zeros((h, w), dtype=np.float32)
+
+    # Create coordinate grids
     y = np.arange(h, dtype=np.float32)[:, None]
     x = np.arange(w, dtype=np.float32)[None, :]
+
+    # Validate and process centroids
     for cx, cy in centroids:
+        if not (0 <= cx < w and 0 <= cy < h):
+            print(f"Warning: Centroid ({cx}, {cy}) is out of bounds for image size ({w}, {h}). Skipping.")
+            continue
         gauss = np.exp(-((x - cx) ** 2 + (y - cy) ** 2) / (2 * std**2))
         mask += gauss
-    return (mask > 0).astype(np.float32)
+
+    # Set default threshold to limit Gaussian spread (approximately 1 std deviation)
+    if threshold is None:
+        threshold = np.exp(-1 / (2 * std**2))  # Value at 1 std deviation
+
+    # Binarize mask
+    binary_mask = (mask > threshold).astype(np.float32)
+    return binary_mask
 
 
 if __name__ == "__main__":

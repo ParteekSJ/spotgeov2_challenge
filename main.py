@@ -23,12 +23,12 @@ def get_args_parser():
     parser.add_argument("--seed", default=42, type=int)
     parser.add_argument("--save_dir", default=f"./checkpoints/{date_time_str}", type=str, help="Ckpt Save Location")
 
-    parser.add_argument("--epochs", default=150, type=int)
+    parser.add_argument("--epochs", default=100, type=int)
     parser.add_argument("--model_type", default="deeplab", type=str)
 
     parser.add_argument("--print_freq", default=10, type=int)
-    parser.add_argument("--save_freq", default=100, type=int)
-    parser.add_argument("--validate_freq", default=10, type=int)
+    parser.add_argument("--save_freq", default=1, type=int)
+    parser.add_argument("--validate_freq", default=3, type=int)
 
     parser.add_argument("--retrain", default=False, type=bool)
 
@@ -53,7 +53,6 @@ def main(args):
     # Load dataset
     trainloader, valloader = load_dataset(args)
 
-    ipdb.set_trace()
     # Create model
     if args.model_type == "deeplab":
         model, criterion = create_model(args)
@@ -91,7 +90,7 @@ def main(args):
     # ipdb.set_trace()
     for epoch in range(start_epoch, args.epochs):
         train_loss = train_one_epoch(model, criterion, trainloader, optimizer, device, epoch + 1, logger, args)
-
+        train_losses.append(train_loss)
         # Print epoch results
         logger.info(f"EPOCH {epoch + 1}, MEAN LOSS: {train_loss:.4f}")
         # logger.info(f"EPOCH {epoch + 1}, MEAN LOSS: {train_loss:.4f}, MEAN ACCURACY: {train_acc:.4f}")
@@ -99,12 +98,12 @@ def main(args):
         # Save a model every `args.save_freq`
         if (epoch + 1) % args.save_freq == 0:
             if train_loss == min(train_losses):
-                save_checkpoint(model, optimizer, epoch, args, f"{args.model_type}_{epoch}_model.pt")
-                train_losses.append(train_loss)
+                # save_checkpoint(model, optimizer, epoch, args, f"{args.model_type}_{epoch}_model.pt")
+                save_checkpoint(model, optimizer, epoch, args, f"{args.model_type}_loss_model.pt")
 
         # Validate every `args.validate_freq`
         if (epoch + 1) % args.validate_freq == 0 or epoch + 1 == args.epochs:
-            results_dict = validate(model, criterion, valloader, device)
+            results_dict = validate(model, criterion, valloader, device, logger, args)
             logger.info(
                 f"VAL LOSS: {results_dict['val_loss']:.4f}, \
                     VAL ACC: {results_dict['val_loss']:.4f}%, \
