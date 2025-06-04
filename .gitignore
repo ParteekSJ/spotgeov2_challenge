@@ -1,6 +1,7 @@
-data/SpotGeoV2
+data/spotGEO
 __pycache__
 *.ipynb
 *.pdf
 spotgeo.py
 validation.py
+checkpoints/*

@@ -1,11 +1,9 @@
 import json
 from PIL import Image
-from albumentations.pytorch import ToTensorV2
 from torchvision import transforms
 from torch.utils.data import Dataset
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
-import ipdb
 import numpy as np
 import torch
 
@@ -30,6 +28,8 @@ class SpotGeoDataset(Dataset):
         self.frame_seq_ids = list(self.organized_data.keys())
 
     def __len__(self):
+        if self.mode == "test":
+            return 1000
         return len(self.organized_data)
         # return 1
 
@@ -50,13 +50,8 @@ class SpotGeoDataset(Dataset):
         mask_np = create_mask(image_np, centroids, std=0.2)
 
         if self.transforms:
-            aug = self.transforms(image=image_np, mask=mask_np)
-            image_tensor = aug["image"]  # torch.Tensor [1, H', W']
-            mask_tensor = aug["mask"]  # torch.Tensor [1, H', W']
-        else:
-            # fallback to simple conversion
-            image_tensor = ToTensorV2()(image=image_np)["image"]
-            mask_tensor = ToTensorV2()(image=mask_np)["image"]
+            image_tensor = self.transforms(image_np)
+            mask_tensor = self.transforms(mask_np)
 
         return image_tensor.unsqueeze(0), mask_tensor.unsqueeze(0), centroids_tensor
 
@@ -107,9 +102,11 @@ def create_mask(image, centroids, std=0.2):
 
 if __name__ == "__main__":
     ds = SpotGeoDataset(
-        root_dir="/Users/parteeksj/Desktop/SpotGeoV2_Project/data/SpotGeoV2",
+        root_dir="/Users/parteeksj/Desktop/SpotGeoV2_Project/data/spotGEO",
         mode="train",
         transforms=transforms.ToTensor(),
     )
+
+    image1 = ds.__getitem__(1)
 
     ds.visualize_image_with_centroids(123)

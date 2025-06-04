@@ -18,16 +18,17 @@ def get_args_parser():
     date_time_str = now.strftime("%Y-%m-%d-%H-%M-%S")
 
     parser = argparse.ArgumentParser("SpotGeo Challenge", add_help=False)
-    parser.add_argument("--dataset_path", default="./data/SpotGeoV2", type=str)
+    parser.add_argument("--dataset_path", default="./data/spotGEO", type=str)
     parser.add_argument("--batch_size", default=8, type=int)
     parser.add_argument("--seed", default=42, type=int)
     parser.add_argument("--save_dir", default=f"./checkpoints/{date_time_str}", type=str, help="Ckpt Save Location")
 
     parser.add_argument("--epochs", default=150, type=int)
-    parser.add_argument("--model_type", default="unet++", type=str)
+    parser.add_argument("--model_type", default="deeplab", type=str)
 
-    parser.add_argument("--print_freq", default=50, type=int)
+    parser.add_argument("--print_freq", default=10, type=int)
     parser.add_argument("--save_freq", default=100, type=int)
+    parser.add_argument("--validate_freq", default=10, type=int)
 
     parser.add_argument("--retrain", default=False, type=bool)
 
@@ -52,8 +53,9 @@ def main(args):
     # Load dataset
     trainloader, valloader = load_dataset(args)
 
+    ipdb.set_trace()
     # Create model
-    if args.model_type == "unet++":
+    if args.model_type == "deeplab":
         model, criterion = create_model(args)
 
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -84,6 +86,8 @@ def main(args):
     # Training loop
     logger.info("Starting training...")
 
+    train_losses = []
+
     # ipdb.set_trace()
     for epoch in range(start_epoch, args.epochs):
         train_loss = train_one_epoch(model, criterion, trainloader, optimizer, device, epoch + 1, logger, args)
@@ -92,11 +96,20 @@ def main(args):
         logger.info(f"EPOCH {epoch + 1}, MEAN LOSS: {train_loss:.4f}")
         # logger.info(f"EPOCH {epoch + 1}, MEAN LOSS: {train_loss:.4f}, MEAN ACCURACY: {train_acc:.4f}")
 
-        # Validate every `args.save_freq`
-        if (epoch + 1) % args.save_freq == 0 or epoch + 1 == args.epochs:
+        # Save a model every `args.save_freq`
+        if (epoch + 1) % args.save_freq == 0:
+            if train_loss == min(train_losses):
+                save_checkpoint(model, optimizer, epoch, args, f"{args.model_type}_{epoch}_model.pt")
+                train_losses.append(train_loss)
+
+        # Validate every `args.validate_freq`
+        if (epoch + 1) % args.validate_freq == 0 or epoch + 1 == args.epochs:
             results_dict = validate(model, criterion, valloader, device)
             logger.info(
-                f"VAL LOSS: {results_dict['val_loss']:.4f}, VAL ACC: {results_dict['val_loss']:.4f}%, VAL F1 SCORE: {results_dict['f1_macro']:.4f}, VAL AUROC: {results_dict['auroc']}"
+                f"VAL LOSS: {results_dict['val_loss']:.4f}, \
+                    VAL ACC: {results_dict['val_loss']:.4f}%, \
+                        VAL F1 SCORE: {results_dict['f1_macro']:.4f}, \
+                            VAL AUROC: {results_dict['auroc']}"
             )
 
             # Save best model
@@ -111,16 +124,6 @@ def main(args):
                     name=f"spotgeo_{args.model_type}_bestckpt.pth",
                 )
                 logger.info(f"[*] MODEL SAVED AT EPOCH {epoch + 1} WITH AUROC => {results_dict['f1_macro']:.2f}%")
-            else:
-                save_checkpoint(
-                    model,
-                    optimizer,
-                    epoch + 1,
-                    args,
-                    results_dict["f1_macro"],
-                    name=f"spotgeo_{args.model_type}_ckpt.pth",
-                )
-                logger.info(f"MODEL SAVED AT EPOCH {epoch + 1}: {results_dict['f1_macro']:.2f}%")
 
     # logger.info(f"BEST VALIDATION ACCURACY: {best_val_f1_score:.2f}%")
     logger.info("TRAINING COMPLETED!")

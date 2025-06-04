@@ -21,7 +21,7 @@ def train_one_epoch(
     model.train()
     for idx, (inputs, masks, centroids) in enumerate(data_loader):
         inputs, masks = inputs.to(device), masks.unsqueeze(1).float().to(device)
-        outputs = model(inputs)
+        outputs = model(inputs)["out"]
         loss = criterion(outputs, masks)
 
         optimizer.zero_grad()
@@ -38,18 +38,21 @@ def train_one_epoch(
 
 
 @torch.no_grad()
-def validate(model, criterion, data_loader, device):
+def validate(model, criterion, data_loader, device, logger, args):
     model.eval()
     losses = []
     all_probs, all_preds, all_targets = [], [], []
 
-    for inputs, masks, _ in data_loader:
+    for idx, (inputs, masks, _) in enumerate(data_loader):
         inputs = inputs.to(device)  # [B,1,H,W]
         targets = masks.to(device).squeeze(1)  # [B,H,W]
 
         logits = model(inputs)  # [B,2,H,W] or [B,1,H,W] w/ BCE
         loss = criterion(logits, targets.unsqueeze(1))
         losses.append(loss.item())
+
+        if idx % args.print_freq == 0:
+            logger.info(f"[VALIDATION] STEP [{idx}/{len(data_loader)}], LOSS: {loss:.4f}")
 
         probs = F.softmax(logits, dim=1)  # [B,2,H,W]
         preds = probs.argmax(dim=1)  # [B,H,W]
