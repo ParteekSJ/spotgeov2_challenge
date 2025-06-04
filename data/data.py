@@ -29,10 +29,10 @@ class SpotGeoDataset(Dataset):
         self.frame_seq_ids = list(self.organized_data.keys())
 
     def __len__(self):
-        # if self.mode == "test":
-        #     return 1000
-        # return len(self.organized_data)
-        return 10
+        if self.mode == "test":
+            return 1000
+        return len(self.organized_data)
+        # return 10
 
     def __getitem__(self, idx):
         sequence, frame = self.frame_seq_ids[idx].split("_")
