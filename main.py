@@ -87,7 +87,6 @@ def main(args):
 
     train_losses = []
 
-    # ipdb.set_trace()
     for epoch in range(start_epoch, args.epochs):
         train_loss = train_one_epoch(model, criterion, trainloader, optimizer, device, epoch + 1, logger, args)
         train_losses.append(train_loss)

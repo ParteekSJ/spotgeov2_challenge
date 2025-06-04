@@ -7,6 +7,7 @@ from matplotlib.patches import Circle
 import numpy as np
 import torch
 import ipdb
+import torch.nn.functional as F
 
 
 class SpotGeoDataset(Dataset):
@@ -55,8 +56,8 @@ class SpotGeoDataset(Dataset):
             mask_tensor = self.transforms(mask_np)
 
         # Binarizing the mask
-        mask_tensor[mask_tensor == -1] = 0.0
-        mask_tensor[mask_tensor < 0] = 1.0
+        # mask_tensor[mask_tensor == -1] = 0.0
+        # mask_tensor[mask_tensor < 0] = 1.0
 
         return image_tensor.unsqueeze(0), mask_tensor.unsqueeze(0), centroids_tensor
 
@@ -64,7 +65,7 @@ class SpotGeoDataset(Dataset):
         image, _, centroids = self.__getitem__(idx)
 
         fig, ax = plt.subplots()
-        ax.imshow(image.squeeze(0), cmap="viridis")
+        ax.imshow(image.squeeze(), cmap="viridis")
         for centroid in centroids:
             plt.scatter(x=centroid[0].item(), y=centroid[1].item(), s=0.5)
             circle = Circle(
@@ -79,6 +80,35 @@ class SpotGeoDataset(Dataset):
 
         plt.grid(True, linestyle="--", alpha=0.7)
         plt.show()
+
+
+def collate_fn(batch):
+    if len(batch) != 1:
+        # ipdb.set_trace()
+        centroids_len_batch_max = max([x[-1].shape[0] for x in batch])
+        pad_tensor_func = lambda x: (
+            (
+                x[0],
+                x[1],
+                F.pad(input=x[-1], pad=(0, 0, 0, centroids_len_batch_max - x[-1].shape[0]), value=-1e-9).unsqueeze(0),
+            )
+            if x[-1].shape[0] != centroids_len_batch_max
+            else (x[0], x[1], x[2].unsqueeze(0))
+        )
+
+        _batch = [pad_tensor_func(x) for x in batch]
+        images = torch.cat([x[0] for x in _batch], dim=0)
+        masks = torch.cat([x[1] for x in _batch], dim=0)
+        centroids = torch.cat([x[2] for x in _batch], dim=0)
+
+        # for idx, x in enumerate(batch):
+        #     centroid = x[-1]
+        #     if centroid.shape[0] != centroids_len_batch_max:
+        #         amt_to_pad = centroids_len_batch_max - centroid.shape[0]
+        #         batch[idx][-1] = F.pad(input=centroid, pad=(0, 0, 0, amt_to_pad), value=-1e-9)
+        return images, masks.squeeze(), centroids
+    else:
+        return batch[0]
 
 
 def create_mask(image, centroids, std=0.2, threshold=None):
@@ -129,6 +159,7 @@ def create_mask(image, centroids, std=0.2, threshold=None):
 
 
 if __name__ == "__main__":
+    ipdb.set_trace()
     ds = SpotGeoDataset(
         root_dir="/Users/parteeksj/Desktop/SpotGeoV2_Project/data/spotGEO",
         mode="train",
@@ -136,5 +167,4 @@ if __name__ == "__main__":
     )
 
     image1 = ds.__getitem__(1)
-
     ds.visualize_image_with_centroids(123)
