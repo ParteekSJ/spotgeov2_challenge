@@ -17,6 +17,7 @@ def train_one_epoch(
     args,
 ):
     train_losses = []
+    # ipdb.set_trace()
 
     model.train()
     for idx, (inputs, masks, centroids) in enumerate(data_loader):

@@ -11,12 +11,12 @@ import torch.nn.functional as F
 
 
 class SpotGeoDataset(Dataset):
-    def __init__(self, root_dir: str, mode: str, transforms):
+    def __init__(self, root_dir: str, mode: str, image_transforms):
         super().__init__()
 
         self.root_dir = root_dir
         self.mode = mode
-        self.transforms = transforms
+        self.transforms = image_transforms
 
         with open(f"{root_dir}/{mode}_anno.json") as json_data:
             annotation_data = json.load(json_data)
@@ -29,6 +29,14 @@ class SpotGeoDataset(Dataset):
 
         self.frame_seq_ids = list(self.organized_data.keys())
 
+        self.mask_transforms = transforms.Compose(
+            [
+                transforms.ToPILImage(),
+                transforms.Resize([224, 224]),
+                transforms.ToTensor(),
+            ]
+        )
+
     def __len__(self):
         if self.mode == "test":
             return 1000
@@ -40,7 +48,7 @@ class SpotGeoDataset(Dataset):
 
         image_path = f"{self.root_dir}/{self.mode}/{sequence}/{frame}.png"
         # image = transforms.PILToTensor()(Image.open(image_path))
-        image_np = np.array(Image.open(image_path).convert("L"), dtype=np.uint8)
+        image_np = Image.open(image_path).convert("L")
 
         centroids = self.organized_data[self.frame_seq_ids[idx]]["object_coords"]
 
@@ -50,14 +58,14 @@ class SpotGeoDataset(Dataset):
             centroids_tensor = torch.zeros((0, 2), dtype=torch.float32)  # empty
 
         mask_np = create_mask(image_np, centroids, std=0.2)
-
         if self.transforms:
             image_tensor = self.transforms(image_np)
-            mask_tensor = self.transforms(mask_np)
+            mask_tensor = self.mask_transforms(mask_np)
 
         # Binarizing the mask
-        # mask_tensor[mask_tensor == -1] = 0.0
-        # mask_tensor[mask_tensor < 0] = 1.0
+        mask_tensor[mask_tensor > 0] = 1
+
+        mask_tensor = mask_tensor.squeeze().long()
 
         return image_tensor.unsqueeze(0), mask_tensor.unsqueeze(0), centroids_tensor
 
@@ -159,11 +167,16 @@ def create_mask(image, centroids, std=0.2, threshold=None):
 
 
 if __name__ == "__main__":
-    ipdb.set_trace()
     ds = SpotGeoDataset(
         root_dir="/Users/parteeksj/Desktop/SpotGeoV2_Project/data/spotGEO",
         mode="train",
-        transforms=transforms.ToTensor(),
+        image_transforms=transforms.Compose(
+            [
+                transforms.Resize([224, 224]),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.5], std=[0.5]),
+            ]
+        ),
     )
 
     image1 = ds.__getitem__(1)
