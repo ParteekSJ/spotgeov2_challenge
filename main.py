@@ -60,6 +60,7 @@ def main(args):
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f"number of params: {n_parameters}")
     model.to(device)
+    criterion.to(device)
 
     # Define loss function, optimizer and scheduler
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
@@ -104,10 +105,7 @@ def main(args):
         if (epoch + 1) % args.validate_freq == 0 or epoch + 1 == args.epochs:
             results_dict = validate(model, criterion, valloader, device, logger, args)
             logger.info(
-                f"VAL LOSS: {results_dict['val_loss']:.4f}, \
-                    VAL ACC: {results_dict['val_loss']:.4f}%, \
-                        VAL F1 SCORE: {results_dict['f1_macro']:.4f}, \
-                            VAL AUROC: {results_dict['auroc']}"
+                f"[VAL] LOSS: {results_dict['val_loss']:.4f} | ACC: {results_dict['val_loss']:.4f}% | F1 SCORE: {results_dict['f1_macro']:.4f} | AUROC: {results_dict['auroc']}"
             )
 
             # Save best model
@@ -118,8 +116,8 @@ def main(args):
                     optimizer,
                     epoch + 1,
                     args,
-                    results_dict["f1_macro"],
                     name=f"spotgeo_{args.model_type}_bestckpt.pth",
+                    val_acc=results_dict["f1_macro"],
                 )
                 logger.info(f"[*] MODEL SAVED AT EPOCH {epoch + 1} WITH AUROC => {results_dict['f1_macro']:.2f}%")
 

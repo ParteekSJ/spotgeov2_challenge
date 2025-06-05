@@ -44,11 +44,12 @@ def validate(model, criterion, data_loader, device, logger, args):
     all_probs, all_preds, all_targets = [], [], []
 
     for idx, (inputs, masks, _) in enumerate(data_loader):
+        ipdb.set_trace()
         inputs = inputs.to(device)  # [B,1,H,W]
-        targets = masks.to(device).squeeze(1)  # [B,H,W]
+        targets = masks.unsqueeze(1).float().to(device)
 
         logits = model(inputs)["out"]  # [B,2,H,W] or [B,1,H,W] w/ BCE
-        loss = criterion(logits, targets.unsqueeze(1))
+        loss = criterion(logits, targets)
         losses.append(loss.item())
 
         if idx % args.print_freq == 0:
